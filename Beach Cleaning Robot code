@@ -1,0 +1,541 @@
+#include <Encoder.h>
+#include <TimedAction.h>
+#include <Servo.h>
+
+Servo myservo;
+
+void work(); // the main function
+void getdistance(); // the first ultrasonic reading
+void getdistance1(); // the second ultrasonic reading
+void turnoff(); // the first ultrasonic reading
+void getcovered(); // the encoder reading
+void flex(); // get flex sensor reading
+void ctrlCar (int  ); // motor control finction
+
+TimedAction timedAction2 = TimedAction(10, work);
+TimedAction timedAction1 = TimedAction(10, getdistance);
+TimedAction timedAction3 = TimedAction(10, getdistance1);
+
+TimedAction timedAction4 = TimedAction(10, getcovered);
+TimedAction timedAction5 = TimedAction(10, flex);
+TimedAction timedAction6 = TimedAction(10, turnoff);
+
+#define in1motor1 8  // the red wire of motor 1 
+#define in2motor1 9  // the black wire of motor 1 
+#define in3motor2 12 // the red wire of motor 2 
+#define in4motor2 13 // the black wire of motor 2 
+
+#define On_button 10
+#define Off_button 11
+
+#define trigPin 5  // trigPin for the first ultrasonic
+#define echoPin 4  // echoPin for the first ultrasonic
+#define trigPin1 6 // trigPin for the second ultrasonic
+#define echoPin1 7 // echoPin for the second ultrasonic
+
+
+const int FLEX_PIN = A0;
+
+int pos;
+int initial_pos=50;
+int neww = 0; // a variable to be used when there is an obsticle
+long duration; // the time duration of the transmitted signal for the first ultrasonic
+int distance; // the distance measured by the first ultrasonic
+long duration1; // the time duration of the transmitted signal for the second ultrasonic
+int distance1; // the distance measured by the second ultrasonic
+
+int radius = 6; //  the radius of the wheel in cm
+double rotation; // the number of the wheel rotation
+double covered ; // the covered distance by our car
+double interval_1; // the covered distance when the car recognize an obstacle
+double interval_2; // the covered distance when the car finish its first turn avoiding the obstacle
+double interval_3; // the covered distance when the car starting the third turn avoiding the obstacle
+int car = 0; // to initilize the code
+int n= 1; // natural number 
+double flexReading;
+double min_flex;
+double max_flex;
+int min_distance=2;
+int max_distance=10;
+int casee;
+
+const float VCC = 4.98; // Measured voltage of Ardunio 5V line
+const float R_DIV = 47500.0; // Measured resistance of 3.3k resistor
+const float STRAIGHT_RESISTANCE = 9500.0; // resistance when straight
+const float BEND_RESISTANCE = 22000.0; // resistance at 90 deg
+int flexADC;
+double flexV;
+double flexR;
+double angle;
+int valon=0;
+int valoff=0;
+
+Encoder myEnc(2,3);
+
+
+int rotDirection = 0;
+int leftMotorSpd = 0;
+int rightMotorSpd = 0;
+
+long oldPosition  = -999;
+
+
+void setup() {
+
+  myservo.attach(A1);
+  
+  pinMode(in1motor1, OUTPUT); // the positive polarity of the first motor
+  pinMode(in2motor1, OUTPUT); // the negative polarity of the first motor
+
+  pinMode(in3motor2, OUTPUT); // the positive polarity of the second motor
+  pinMode(in4motor2, OUTPUT); // the negative polarity of the second motor
+  
+  pinMode(trigPin, OUTPUT); // Sets the trigPin for the first ultrasonic as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin for the first ultrasonic  as an Input
+  
+  pinMode(trigPin1, OUTPUT); // Sets the trigPin for the second ultrasonic as an Output
+  pinMode(echoPin1, INPUT); // Sets the echoPin for the second ultrasonic  as an Input
+
+ 
+  pinMode(On_button, INPUT); 
+  pinMode(Off_button, INPUT); //
+  
+  
+  Serial.begin(9600);
+  
+   for (pos = 0; pos <= initial_pos; pos += 1) { 
+                 myservo.write(pos);         
+                 delay(15); 
+              
+                         
+        }
+ 
+
+  
+}
+void loop() {
+
+
+  timedAction2.check();
+  timedAction1.check();
+  timedAction3.check();
+  timedAction4.check();
+  timedAction5.check();
+  timedAction6.check();
+   
+
+}
+
+void work() {
+valon = digitalRead(On_button);
+if ( valon == HIGH ) {
+        car = 1;
+        Serial.println(" lets start ");
+        
+  timedAction2.check();
+  timedAction1.check();
+  timedAction3.check();
+  timedAction4.check();
+  timedAction5.check();
+  timedAction6.check();
+  
+}
+
+
+while (  car==1 && covered < 5000) {
+
+
+  timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+            timedAction6.check(); 
+            
+      Serial.println(" ahead ");
+if ( car==1 && distance > 20 && distance < 5000 ) {
+
+
+   
+         ctrlCar(2);//go ahead
+         Serial.println(" ahead ");
+         neww=0;
+         casee=0;
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+            timedAction6.check();
+          //Serial.println(" ahead ");
+          Serial.print("Distance covered: ");
+          Serial.println(covered);
+  }
+       
+   
+
+if ( car==1 &&  distance < 50 && distance > 2 )
+{ 
+  ctrlCar(5);// stop
+  Serial.println(" obsticle ");
+         delay(5000);
+         neww= 1;
+        
+  
+  }
+  
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+if (  car==1 && distance < 20 && distance > 2 && neww != 0 ) {
+    
+  Serial.println(" obsticle is there ");
+          ctrlCar(5);// stop
+          delay(2000);  
+          ctrlCar(0);// left
+          delay(3000);  
+          ctrlCar(5);// stop
+          delay(2000);
+          ctrlCar(2);// Forward
+          delay(2000);
+          ctrlCar(5);// stop
+           timedAction1.check();
+           timedAction3.check();
+           timedAction4.check();
+           timedAction5.check();
+           timedAction6.check();
+           interval_1= covered;
+           Serial.println(" first interval ");
+           Serial.print(interval_1);
+          delay(2000);  
+          
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+          
+         
+          
+while (  car==1 && distance1 < 50 && distance1 > 2 ){
+          ctrlCar(2); // Forward
+          Serial.println(" along the side ");
+           timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+           interval_2= covered;
+           Serial.println(" second interval ");
+           Serial.print(interval_2);
+         
+           timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+          }
+         
+           Serial.println(" finish task 1 ");
+          ctrlCar(1);// Right
+          delay(3000);
+          ctrlCar(5);// stop
+          delay(2000);
+          ctrlCar(2);// Forward
+          delay(2000);
+          ctrlCar(5);// stop
+          delay(2000);  
+          
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+while (  car==1 && distance1 < 50 && distance1 > 2 ){
+          ctrlCar(2); // Forward
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+            Serial.println(" along the side two ");
+          
+          
+          }
+          Serial.println(" finish task 2 ");
+          ctrlCar(5);// stop
+           timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+           interval_3= covered;
+           Serial.println(" third interval ");
+           Serial.print(interval_3);
+          delay(2000);
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+        
+          
+          ctrlCar(1);// Right
+          delay(3000);
+          ctrlCar(5);// stop
+          delay(2000);
+          ctrlCar(2);// Forward
+          delay(2000);
+          ctrlCar(5);// stop
+          Serial.println(" last distance");
+           Serial.print(covered);
+          delay(2000);
+
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+          
+while (  car==1 && ((covered -  interval_3) < (interval_2 - interval_1 ))){
+  ctrlCar(2);// Forward
+  Serial.println(" last thing");
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+}
+Serial.println(" finish avoiding the obstacle");
+
+          ctrlCar(0);// left
+          delay(3000);
+          ctrlCar(5);// stop
+          delay(2000);  
+          ctrlCar(2);// Forward
+          delay(2000);
+          timedAction1.check();
+          timedAction3.check();
+          timedAction4.check();
+          timedAction5.check();
+          timedAction6.check();
+}
+ 
+          
+if   (  car==1 && covered > 1000*n && casee==0  ) {
+  
+          ctrlCar(5);// stop
+          delay(2000); ;
+          if ( pow(-1,n) == -1 && casee==0 ){
+          ctrlCar(1);// right
+          delay(3000);
+          ctrlCar(5);// stop
+          delay(2000);
+          ctrlCar(1);// right
+          delay(3000); 
+          casee=1;
+          Serial.println(" first turn right " ) ;}
+          
+          else if ( pow(-1,n) && casee==0 ){
+          ctrlCar(0);// left
+          delay(3000);  
+          ctrlCar(5);// stop
+          delay(2000);
+          ctrlCar(0);// left
+          delay(3000);
+          Serial.println(" first turn left " );
+          casee=1;
+          }
+          
+ 
+                
+          ctrlCar(2);// forward
+          delay(2000);  //Serial.println(" forward ");
+          Serial.print(n ) ;
+          Serial.println("  turn " ) ;
+          ctrlCar(2); // Forward
+          n=n+1;
+          casee=1;
+          }
+          
+
+
+
+}
+car=0;
+ctrlCar(5);// stop
+}
+
+
+void getdistance() {
+  
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+// Sets the trigPin on HIGH state for 10 micro seconds
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin, LOW);
+// Reads the echoPin, returns the sound wave travel time in microseconds
+duration = pulseIn(echoPin, HIGH);
+// Calculating the distance
+distance= duration*0.034/2;
+// Prints the distance on the Serial Monitor
+Serial.print("Distance for ultra1: ");
+//
+Serial.println(distance);
+
+return distance;
+}
+
+void getdistance1() {
+  
+digitalWrite(trigPin1, LOW);
+delayMicroseconds(2);
+// Sets the trigPin on HIGH state for 10 micro seconds
+digitalWrite(trigPin1, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin1, LOW);
+// Reads the echoPin, returns the sound wave travel time in microseconds
+duration1 = pulseIn(echoPin1, HIGH);
+// Calculating the distance
+distance1= duration1*0.034/2;
+// Prints the distance on the Serial Monitor
+Serial.print("Distance for ultra2: ");
+Serial.println(distance1);
+return distance1;
+}
+
+
+
+void getcovered() 
+{
+
+ long newPosition = myEnc.read();
+ Serial.println(newPosition);
+  if (newPosition != oldPosition ) {
+           oldPosition = newPosition;
+        //  Serial.println(newPosition);
+          rotation = oldPosition / 2700 ;
+          covered = rotation * PI * 2 * radius; 
+          Serial.print("Distance covered: ");
+          Serial.println(covered); }
+  
+}
+
+void flex(){
+  // Read the ADC, and calculate voltage and resistance from it
+   flexADC = analogRead(FLEX_PIN);
+    
+   flexV = flexADC * VCC / 1023.0;
+   flexR = R_DIV * (VCC / flexV - 1.0);
+  
+   Serial.println("Resistance: " + String(flexR) + " ohms");
+
+  // Use the calculated resistance to estimate the sensor's bend angle:
+   angle = map(flexR, STRAIGHT_RESISTANCE, BEND_RESISTANCE,0, 90.0);
+  Serial.println("Bend: " + String(angle) + " degrees");
+  Serial.println();
+
+ // delay(500);
+
+  if ( angle > 10 && angle < 90 ){
+            ctrlCar(5);// stop
+            delay(2000);
+            ctrlCar(3);// backward
+            delay(3000);
+            ctrlCar(5);// stop
+            delay(2000);
+
+   for (pos = 50; pos >= 3; pos -= 1) { 
+                 myservo.write(pos);         
+                 delay(15); 
+              
+                         
+        }
+                       ctrlCar(5);// stop
+                        delay(2000);  
+                        ctrlCar(2);// forward
+                        delay(3000);
+                        Serial.println("car is working");
+                        ctrlCar(5);// stop
+                        delay(2000);
+                        Serial.println("car stop");
+
+      for (pos = 3; pos <= 150; pos += 1) { 
+                                            
+                 myservo.write(pos);        
+                 delay(15);  
+}
+delay(2000);
+         for (pos = 150; pos >= 50; pos -= 1) { 
+                                            
+                 myservo.write(pos);        
+                 delay(15);  
+
+                                 
+        }}
+        delay(1000);
+        }
+
+void ctrlCar(int motorDir) {
+    if (motorDir == 2) {
+          digitalWrite(in1motor1, LOW);
+          digitalWrite(in2motor1, HIGH);
+          digitalWrite(in3motor2, LOW);
+          digitalWrite(in4motor2, HIGH);  // Go forward
+         //  Serial.println(" I am here ");
+  
+          
+    
+  
+    }
+    if (motorDir == 3) {
+          digitalWrite(in1motor1, HIGH);
+          digitalWrite(in2motor1, LOW);
+          digitalWrite(in3motor2, HIGH);
+          digitalWrite(in4motor2, LOW);  // Go backward
+         
+    }
+    if (motorDir == 0) {
+          digitalWrite(in1motor1, HIGH);
+          digitalWrite(in2motor1, LOW);
+          digitalWrite(in3motor2, LOW);
+          digitalWrite(in4motor2, HIGH);    // Go left
+        
+    }
+    if (motorDir == 1) {
+          digitalWrite(in1motor1, LOW);
+          digitalWrite(in2motor1, HIGH);
+          digitalWrite(in3motor2, HIGH);
+          digitalWrite(in4motor2, LOW);  //;  // Go right
+        
+    }
+     if (motorDir == 5) {
+          digitalWrite(in1motor1, HIGH);
+          digitalWrite(in2motor1, HIGH);
+          digitalWrite(in3motor2, HIGH);
+          digitalWrite(in4motor2, HIGH);  // stop
+     }
+     
+
+
+    }
+   
+void turnoff() 
+{
+
+ valoff = digitalRead(Off_button);
+if ( valoff == HIGH ) {
+        car = 0;
+        Serial.println(" stop the car ");
+        
+  timedAction2.check();
+  timedAction1.check();
+  timedAction3.check();
+  timedAction4.check();
+  timedAction5.check();
+  timedAction6.check();
+  
+}
+  
+}
